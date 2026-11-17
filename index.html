@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>回答评测台</title>
+    <meta name="description" content="回答评测台 · 本地运行的开源练习工具" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      .case-list {
+        display: grid;
+        gap: 8px;
+      }
+      .case-list button {
+        text-align: left;
+        font-weight: 500;
+      }
+      .case-list button.active {
+        border-color: var(--accent);
+        background: var(--soft);
+      }
+      .answer {
+        min-width: 0;
+      }
+      .answer-text {
+        min-height: 180px;
+        line-height: 1.8;
+        font-size: 14px;
+      }
+      .score-fields {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 18px;
+      }
+      .score-fields select {
+        padding: 7px;
+      }
+      .answer textarea {
+        min-height: 95px;
+      }
+      .answer .check {
+        margin: 12px 0;
+      }
+      .score-total {
+        font-size: 13px;
+        color: var(--accent);
+      }
+      details {
+        padding: 12px;
+        background: var(--soft);
+        border-radius: 9px;
+      }
+      summary {
+        cursor: pointer;
+        font-weight: 600;
+      }
+      details p {
+        margin: 10px 0 0;
+        font-size: 13px;
+      }
+      hr {
+        border: 0;
+        border-top: 1px solid var(--line);
+        margin: 20px 0;
+      }
+      @media (max-width: 1000px) {
+        #answers {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <nav>
+        <span class="mark">AE</span><span class="brand">回答评测台</span
+        ><small>本地运行 · 无需登录 · 开源</small>
+      </nav>
+    </header>
+    <main>
+      <section class="hero">
+        <div>
+          <div class="eyebrow">03 / AI evaluation</div>
+          <h1>好答案，要有判断依据。</h1>
+          <p>
+            把两份回答放在同一套标准下：先看任务和参考信息，再评分、记录证据，最后揭晓版本。
+          </p>
+        </div>
+        <div class="actions">
+          <button id="demo">开始模拟评测</button
+          ><button id="export">导出评测记录</button
+          ><button id="csv-export">导出评分 CSV</button>
+        </div>
+      </section>
+      <div class="notice warning">
+        这是人工辅助评测工具，不调用模型
+        API。示例回答为编写的模拟样本，不代表任何真实模型表现。
+      </div>
+      <div
+        id="notice"
+        class="notice"
+        role="status"
+        aria-live="polite"
+        hidden
+      ></div>
+      <div class="workspace">
+        <aside class="stack">
+          <section class="panel">
+            <h2>01 / 评测集</h2>
+            <p id="dataset-name" class="muted"></p>
+            <div id="cases" class="case-list"></div>
+            <hr />
+            <div class="field">
+              <label for="file">导入评测集 / 本工具备份 JSON</label
+              ><input id="file" type="file" accept=".json" />
+            </div>
+            <p class="help">
+              最多 100 个案例、文件 ≤ 1 MB。参照仓库
+              sample.json；导入新评测集会替换当前记录。
+            </p>
+            <button id="clear">清空本地评测</button>
+          </section>
+          <section class="panel">
+            <h2>统一评分标准</h2>
+            <p class="compact">
+              <strong>准确性 40%</strong>：是否符合参考信息<br /><strong
+                >任务完成度 35%</strong
+              >：是否回应约束与目标<br /><strong>表达清晰度 25%</strong
+              >：是否易懂、可执行
+            </p>
+            <p class="help">
+              1 = 严重不足，3 = 基本可用，5 =
+              完整可靠。中间分数用于相邻水平。严重事实错误勾选后，总分最高
+              40。每份回答必须留下判断依据。
+            </p>
+          </section>
+        </aside>
+        <div class="stack">
+          <section class="panel">
+            <div class="section-title">
+              <h2 id="case-title">02 / 当前任务</h2>
+              <span class="pill">先评分，后揭晓</span>
+            </div>
+            <h3>用户任务</h3>
+            <p id="prompt" class="pre"></p>
+            <details open>
+              <summary>参考信息与判断要点</summary>
+              <p id="reference" class="pre"></p>
+            </details>
+          </section>
+          <div class="split" id="answers"></div>
+          <section class="panel">
+            <div class="row">
+              <button id="previous">← 上一条</button
+              ><button id="reveal" class="primary">揭晓当前版本</button
+              ><button id="next">下一条 →</button>
+            </div>
+            <p id="progress" class="help"></p>
+          </section>
+          <section class="panel">
+            <h2>03 / 完成案例汇总</h2>
+            <div id="summary" class="cards"></div>
+            <p class="help">
+              仅汇总两份回答均评分完整且填写依据的案例。未完成项不算零分。小样本和单人评分不构成模型排行榜。
+            </p>
+          </section>
+        </div>
+      </div>
+    </main>
+    <footer>
+      hx819-x / answer-eval-lab · MIT · Codex 辅助开发的学习作品 ·
+      示例为模拟数据<br />内容在浏览器内处理；仅策划台和评测台在当前浏览器保存草稿。导出文件请自行保管。
+    </footer>
+    <script src="core.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
